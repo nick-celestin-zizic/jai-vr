@@ -74,7 +74,7 @@ set_my_build_options :: (w: Workspace) {
     output_path            = EXE_DIR;
     dead_code_elimination  = .ALL;
     
-    my_imports: [..]string; my_imports.allocator = temp; scope_reset_temp();
+    my_imports: [..]string;
     for import_path array_add(*my_imports, it);
     array_add(*my_imports, tprint("%0modules", #filepath));
     import_path = my_imports;
@@ -96,10 +96,8 @@ set_my_build_options :: (w: Workspace) {
 
 do_checking_loop :: () {
     compile :: (path: string) {
-        print("\x1B[0;0H");
-        for 0..200 print("\n");
-        print("\x1B[0;0H");
-        defer print("\x1B[A\x1B[KLoaded %", path);
+        print("\x1B[0;0H\x1B[2J");                         // clear the screen
+        defer print("\x1B[F\x1B[K\rRecompiled %\n", path); // replace the linker line
         
         w := compiler_create_workspace("Checking");
         defer compiler_destroy_workspace(w);
@@ -111,7 +109,8 @@ do_checking_loop :: () {
     watcher: File_Watcher;
     watcher.watch_recursively = true;
     assert(init(*watcher, (_, c) => {
-        if (c.events & .MODIFIED) && ends_with(c.full_path, ".jai") then inline compile(c.full_path);
+        if (c.events & .MODIFIED) && ends_with(c.full_path, ".jai")
+        then inline compile(c.full_path);
     }, .MODIFIED));
     defer deinit(watcher);
     
@@ -121,7 +120,8 @@ do_checking_loop :: () {
     compile(#filepath);
     while true {
         _, needs_wait, wait_seconds := process_changes(*watcher);
-        if needs_wait then sleep_milliseconds(xx (wait_seconds * 1000)); else sleep_milliseconds(20);
+        if needs_wait then sleep_milliseconds(xx (wait_seconds * 1000));
+        else sleep_milliseconds(20);
     }
 }
 
@@ -154,8 +154,9 @@ message_loop :: () {
             case .TYPECHECKED; {
                 typechecked := cast(*Message_Typechecked) msg;
                 for body: typechecked.procedure_bodies {
-                    expr := body.expression;
                     for body.subexpressions gl_collect_proc_call(it);
+                    
+                    expr := body.expression;
                     if !(expr.body_flags & .ALREADY_MODIFIED) then for stmt: expr.block.statements {
                         new_expr := inject_monadic_error_handling(stmt, body.expression);
                         if new_expr {
@@ -168,7 +169,7 @@ message_loop :: () {
             case .PHASE; {
                 msg_phase := cast(*Message_Phase) msg;
                 
-                if msg_phase.phase == .TYPECHECKED_ALL_WE_CAN  && !generated_code {
+                if msg_phase.phase == .TYPECHECKED_ALL_WE_CAN && !generated_code {
                     generated_code = true;
                     
                     gl_generate_proc_loader(workspace);
@@ -180,7 +181,7 @@ message_loop :: () {
                 
                 compiler_report(tprint(
                     "% could not import %",
-                    ifx host_module_name then host_module_name else "Main_Program",
+                    ifx host_module_name then host_module_name else "Main Program",
                     target_module_name
                 ));
                 

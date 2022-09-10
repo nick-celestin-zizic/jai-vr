@@ -30,6 +30,15 @@
     array_add(*source_files,   "openxr_platform_defines.h");
     array_add(*source_files,   "openxr_reflection.h");
 
+    visitor = (using decl: *Declaration, parent_decl: *Declaration) -> Declaration_Visit_Result {
+        if name == "XrDebugUtilsMessageSeverityFlagsEXT"
+            || name == "XrDebugUtilsMessageTypeFlagsEXT"
+        then decl_flags |= .OMIT_FROM_OUTPUT;
+        
+        return .RECURSE;
+        
+    };
+
     
     if !generate_bindings(opts, "module.jai", true) {
         log("Could not genereate module.jai");
@@ -175,6 +184,24 @@ Matrix4x4f :: struct {
 GraphicsApi :: enum {
     VULKAN; OPENGL; OPENGL_ES;
 }
+
+XrDebugUtilsMessageSeverityFlagsEXT :: enum_flags XrFlags64 {
+    VERBOSE :: 1;
+    INFO    :: 16;
+    WARNING :: 256;
+    ERROR   :: 4096;
+    ALL     :: VERBOSE | INFO | WARNING | ERROR;
+}
+
+XrDebugUtilsMessageTypeFlagsEXT :: enum_flags XrFlags64 {
+    GENERAL     :: 1;
+    VALIDATION  :: 2;
+    PERFORMANCE :: 4;
+    CONFORMANCE :: 8;
+    ALL         :: GENERAL | VALIDATION | PERFORMANCE | CONFORMANCE;
+}
+
+// TODO: probably just get rid of these...
 
 XrMatrix4x4f_CreateProjectionFov :: inline (result: *Matrix4x4f, graphicsApi: GraphicsApi, fov: XrFovf, nearZ: float, farZ: float) {
     tanAngleLeft  := tan(fov.angleLeft);

@@ -141,6 +141,24 @@ GraphicsApi :: enum {
     VULKAN; OPENGL; OPENGL_ES;
 }
 
+XrDebugUtilsMessageSeverityFlagsEXT :: enum_flags XrFlags64 {
+    VERBOSE :: 1;
+    INFO    :: 16;
+    WARNING :: 256;
+    ERROR   :: 4096;
+    ALL     :: VERBOSE | INFO | WARNING | ERROR;
+}
+
+XrDebugUtilsMessageTypeFlagsEXT :: enum_flags XrFlags64 {
+    GENERAL     :: 1;
+    VALIDATION  :: 2;
+    PERFORMANCE :: 4;
+    CONFORMANCE :: 8;
+    ALL         :: GENERAL | VALIDATION | PERFORMANCE | CONFORMANCE;
+}
+
+// TODO: probably just get rid of these...
+
 XrMatrix4x4f_CreateProjectionFov :: inline (result: *Matrix4x4f, graphicsApi: GraphicsApi, fov: XrFovf, nearZ: float, farZ: float) {
     tanAngleLeft  := tan(fov.angleLeft);
 	  tanAngleRight := tan(fov.angleRight);
@@ -3579,15 +3597,11 @@ PFN_xrThermalGetTemperatureTrendEXT :: #type (a0: XrSession, a1: XrPerfSettingsD
 XrDebugUtilsMessengerEXT_T :: struct {}
 XrDebugUtilsMessengerEXT :: *XrDebugUtilsMessengerEXT_T;
 
-XrDebugUtilsMessageSeverityFlagsEXT :: XrFlags64;
-
 // Flag bits for XrDebugUtilsMessageSeverityFlagsEXT
 XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: XrDebugUtilsMessageSeverityFlagsEXT : 1;
 XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: XrDebugUtilsMessageSeverityFlagsEXT : 16;
 XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: XrDebugUtilsMessageSeverityFlagsEXT : 256;
 XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: XrDebugUtilsMessageSeverityFlagsEXT : 4096;
-
-XrDebugUtilsMessageTypeFlagsEXT :: XrFlags64;
 
 // Flag bits for XrDebugUtilsMessageTypeFlagsEXT
 XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: XrDebugUtilsMessageTypeFlagsEXT : 1;
