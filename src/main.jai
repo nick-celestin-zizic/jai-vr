@@ -14,9 +14,7 @@ gltf :: #import "GLTF";
 #import "Code_Traverse";
 
 #load "renderer.jai";
-
 DEBUG :: 0;
-
 hwnd : HWND;
 WIN_WIDTH  :: 1280;
 WIN_HEIGHT :: 720;
@@ -127,13 +125,7 @@ main :: () {
 
         // TODO: put game here
 
-        // TODO: all of this should be done in the render thread
-        if !run_framecycle {
-            log("not doing anything this frame...");
-            continue;
-        }
-
-        xr_render_frame(*swapchain);
+        if run_framecycle then xr_render_frame(*swapchain); else log_error("DROPPED A FRAME!!!");
     }
 }
 
