@@ -94,34 +94,90 @@ set_my_build_options :: (w: Workspace) {
     }
 }
 
+#if OS == .WINDOWS {
+    #import "Windows";
+
+    ENABLE_LINE_INPUT      :u32: 0x0002;
+    ENABLE_PROCESSED_INPUT :u32: 0x0001;
+    
+    stdin: HANDLE;
+    original_mode: u32;
+    init_stdin :: () {
+        stdin = GetStdHandle(STD_INPUT_HANDLE);
+        mode: u32;
+        GetConsoleMode(stdin, *mode);
+        original_mode = mode;
+        mode &= ~ENABLE_LINE_INPUT;
+        SetConsoleMode(stdin, mode);
+    }
+
+    deinit_stdin :: () {
+        SetConsoleMode(stdin, original_mode);
+    }
+    get_stdin :: (buffer: []u8) -> string { // supply the buffer and we'll fill it!
+        input: string;
+        input.data = buffer.data;
+        success := ReadFile(stdin, buffer.data, xx buffer.count, xx *input.count, null);
+        
+        return input;
+    }
+}
+
+
+mutex: Mutex; // this is so that we can stop the check loop while we run the program
 do_checking_loop :: () {
+    #import "Input";
     compile :: (path: string) {
         print("\x1B[0;0H\x1B[2J");                         // clear the screen
         defer print("\x1B[F\x1B[K\rRecompiled %\n", path); // replace the linker line
         
-        w := compiler_create_workspace("Checking");
-        defer compiler_destroy_workspace(w);
-        
+        w := compiler_create_workspace("Checking"); defer compiler_destroy_workspace(w);
         set_my_build_options(w);
         compile_main(w);
     }
 
-    watcher: File_Watcher;
-    watcher.watch_recursively = true;
-    assert(init(*watcher, (_, c) => {
-        if (c.events & .MODIFIED) && ends_with(c.full_path, ".jai")
-        then inline compile(c.full_path);
-    }, .MODIFIED));
-    defer deinit(watcher);
-    
-    assert(add_directories(*watcher, tprint("%0%", #filepath, "src")));
-    assert(add_directories(*watcher, tprint("%0%", #filepath, "modules")));
+    // we want to be able to read the console for commands while we poll
+    #import "Thread";
+    compilation_thread := thread_create((thread: *Thread) -> int {
+        watcher: File_Watcher;
+        watcher.watch_recursively = true;
+        assert(init(*watcher, (_, c) => {
+            if (c.events & .MODIFIED) && (ends_with(c.full_path, ".jai") ||
+                                          ends_with(c.full_path, ".hlsl")) {
+                lock(*mutex); defer unlock(*mutex);
+                compile(c.full_path);
+            }
+        }, .MODIFIED));
+        defer deinit(watcher);
+        
+        assert(add_directories(*watcher, tprint("%0%", #filepath, "src")));
+        assert(add_directories(*watcher, tprint("%0%", #filepath, "modules")));
 
-    compile(#filepath);
+        compile(#filepath);
+        while true {
+            _, needs_wait, wait_seconds := process_changes(*watcher);
+            if needs_wait then sleep_milliseconds(xx (wait_seconds * 1000));
+            sleep_milliseconds(20);
+        }
+
+        return 0;
+    }); defer thread_destroy(compilation_thread);
+    thread_start(compilation_thread);
+
+    init(*mutex); defer destroy(*mutex);
+
+    init_stdin(); defer deinit_stdin();
+    buffer: [1024]u8; // for stdin storage
     while true {
-        _, needs_wait, wait_seconds := process_changes(*watcher);
-        if needs_wait then sleep_milliseconds(xx (wait_seconds * 1000));
-        else sleep_milliseconds(20);
+        input := get_stdin(buffer);
+        if input[0] == {
+            case        3 ; #through; // CTR+C
+            case #char "q"; return;
+            case #char "r"; {
+                lock(*mutex); defer unlock(*mutex);
+                cmd(EXE);
+            }
+        }
     }
 }
 
@@ -228,8 +284,8 @@ match_unused_xr_result :: (expr: *Code_Node) -> (matched: bool, name: string, te
     DONE;
 }
 
-#import "Windows";
 match_unused_hresult :: (expr: *Code_Node) -> (matched: bool, name: string, template: string) {
+    #import "Windows";
     if expr.kind != .PROCEDURE_CALL return false, "", "";
     pc := cast(*Code_Procedure_Call) expr;
     

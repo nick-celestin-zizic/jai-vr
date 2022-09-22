@@ -4,6 +4,10 @@
 #import "Process";
 #import "File";
 
+reinterpret_cast :: ($target: Type, value: $T) -> target #expand {
+    return <<(cast(*target)*value);
+}
+
 disable_logging :: () #expand  {
     old_logger := context.logger;
     context.logger = (a, b, c) => {};
